@@ -28,6 +28,18 @@ See also [here](#appendix-A)
 ```
 sudo docker compose up -d
 ```
+
+## About Kafka Web UI
+
+* To see Kafka Web UI, go http://localhost:3000/
+
+## About PostgreSQL UI (PgAdmin)
+
+1. To see PostgreSQL Web UI, open http://localhost:18080/ on your browser
+2. Input login parameters and press login button
+ * Email Andree/Username: demo@sample.com
+ * Password: password
+
 ## To Clean-up
 ```
 sudo docker compose down
@@ -35,6 +47,23 @@ sudo docker compose down
 # If you want to remove docker volumes as well
 # sudo docker compose down -v
 ```
+
+## To register access info into Kafka connect
+### Step1: Call Rest API to register access info into Kafka connect
+```
+curl -X POST \
+  -H "Content-Type: application/json" \
+  --data '{ "name": "demo-jdbc-sink", "config": { "connector.class": "io.confluent.connect.jdbc.JdbcSinkConnector", "tasks.max": 1, "connection.url": "jdbc:postgresql://localhost:5431/demo_db", "connection.user": "postgres", "connection.password": "password", "insert.mode": "insert", "auto.create": "true", "topics": "demo_counter" } }' \
+  http://localhost:8083/connectors
+```
+### Step1: Call Rest API to check Kafka connect status
+```
+# curl -s http://localhost:8083/connectors/(KAFKA_CONNECT_NAME)/status/
+curl -s http://localhost:8083/connectors/demo-jdbc-sink/status/
+
+{"name":"demo-jdbc-sink","connector":{"state":"RUNNING","worker_id":"localhost:8083"},"tasks":[{"id":0,"state":"RUNNING","worker_id":"localhost:8083"}],"type":"sink"}
+```
+
 
 # <span id="appendix-A">Appendix-A: Set-up docker/docker compose</span>
 ## To confirm your enviroment

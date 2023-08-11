@@ -42,11 +42,11 @@ services:
     tty: true
   # Kafka connect
   kafka-connect:
-    image: confluentinc/cp-kafka-connect:latest
+    image: confluentinc/cp-kafka-connect-base:latest
     hostname: connect
     container_name: kafka-connect
     ports:
-      - 28083:28083
+      - 8083:8083
     links:
       - broker
       - zookeeper
@@ -54,7 +54,7 @@ services:
     environment:
       CONNECT_BOOTSTRAP_SERVERS: broker:19092
       CONNECT_ZOOKEEPER_CONNECT: zookeeper:2181
-      CONNECT_REST_PORT: 28083
+      CONNECT_REST_PORT: 8083
       CONNECT_GROUP_ID: "connect-group"
       CONNECT_CONFIG_STORAGE_TOPIC: "connect-config"
       CONNECT_OFFSET_STORAGE_TOPIC: "connect-offsets"
@@ -71,6 +71,7 @@ services:
       CONNECT_PLUGIN_PATH: "/usr/share/java,/etc/kafka-connect/jars"
     volumes:
       - ./inits/init-kafka-connect/jars:/etc/kafka-connect/jars
+      - ./inits/init-kafka-connect/config:/etc/kafka-connect/config
   init-kafka:
     image: confluentinc/cp-kafka:latest
     container_name: init-kafka
@@ -101,7 +102,7 @@ services:
       KAFKA_CLUSTERS_0_NAME: broker-1
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: broker:19092
       KAFKA_CLUSTERS_0_METRICS_PORT: 9997
-  # PostgreSQL (Instead of Snowflake)
+  # PostgreSQL
   postgres:
     image: postgres:latest
     container_name: postgres
