@@ -1,0 +1,141 @@
+version: "3"
+
+services:
+  # Kafka
+  zookeeper:
+    image: docker.io/confluentinc/cp-zookeeper:latest
+    hostname: zookeeper
+    container_name: zookeeper
+    environment:
+      TZ: Asia/Tokyo
+      ZOOKEEPER_SERVER_ID: 1
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+      ZOOKEEPER_INIT_LIMIT: 5
+      ZOOKEEPER_SYNC_LIMIT: 2
+  broker:
+    image: docker.io/confluentinc/cp-kafka:latest
+    hostname: broker
+    container_name: broker
+    depends_on:
+      - zookeeper
+    ports:
+      - 19092:19092
+    environment:
+      TZ: Asia/Tokyo
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_INTERNAL:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092,PLAINTEXT_INTERNAL://broker:19092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_JMX_PORT: 9997
+      KAFKA_JMX_HOSTNAME: broker
+  cli:
+    image: docker.io/confluentinc/cp-kafka:latest
+    hostname: cli
+    container_name: cli
+    depends_on:
+      - broker
+    entrypoint: /bin/bash
+    tty: true
+  # Kafka connect
+  kafka-connect:
+    image: confluentinc/cp-kafka-connect:latest
+    hostname: connect
+    container_name: kafka-connect
+    ports:
+      - 28083:28083
+    links:
+      - broker
+      - zookeeper
+      - postgres
+    environment:
+      CONNECT_BOOTSTRAP_SERVERS: broker:19092
+      CONNECT_ZOOKEEPER_CONNECT: zookeeper:2181
+      CONNECT_REST_PORT: 28083
+      CONNECT_GROUP_ID: "connect-group"
+      CONNECT_CONFIG_STORAGE_TOPIC: "connect-config"
+      CONNECT_OFFSET_STORAGE_TOPIC: "connect-offsets"
+      CONNECT_STATUS_STORAGE_TOPIC: "connect-status"
+      CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_KEY_CONVERTER: "org.apache.kafka.connect.json.JsonConverter"
+      CONNECT_VALUE_CONVERTER: "org.apache.kafka.connect.json.JsonConverter"
+      CONNECT_INTERNAL_KEY_CONVERTER: "org.apache.kafka.connect.json.JsonConverter"
+      CONNECT_INTERNAL_VALUE_CONVERTER: "org.apache.kafka.connect.json.JsonConverter"
+      CONNECT_REST_ADVERTISED_HOST_NAME: "localhost"
+      CONNECT_LOG4J_ROOT_LOGLEVEL: DEBUG
+      CONNECT_PLUGIN_PATH: "/usr/share/java,/etc/kafka-connect/jars"
+    volumes:
+      - ./inits/init-kafka-connect/jars:/etc/kafka-connect/jars
+  init-kafka:
+    image: confluentinc/cp-kafka:latest
+    container_name: init-kafka
+    depends_on:
+      - broker
+    entrypoint: [ '/bin/sh', '-c' ]
+    command: |
+      "
+      # blocks until kafka is reachable
+      kafka-topics --bootstrap-server broker:19092 --list
+
+      echo -e 'Creating kafka topics'
+      kafka-topics --bootstrap-server broker:19092 --create --if-not-exists --topic demo_counter --replication-factor 1 --partitions 1
+
+      echo -e 'Successfully created the following topics:'
+      kafka-topics --bootstrap-server broker:19092 --list
+      "
+  kafka-ui:
+    container_name: kafka-ui
+    image: provectuslabs/kafka-ui:latest
+    ports:
+      - 3000:8080
+    depends_on:
+      - broker
+    restart: always
+    environment:
+      TZ: Asia/Tokyo
+      KAFKA_CLUSTERS_0_NAME: broker-1
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: broker:19092
+      KAFKA_CLUSTERS_0_METRICS_PORT: 9997
+  # PostgreSQL (Instead of Snowflake)
+  postgres:
+    image: postgres:latest
+    container_name: postgres
+    hostname: postgresql
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      PGPASSWORD: password
+      POSTGRES_DB: sample
+      TZ: "Asia/Tokyo"
+    ports:
+      - 5431:5432
+    volumes:
+      - volume_postgres:/var/lib/postgresql/data
+      - ./inits/init-db:/docker-entrypoint-initdb.d
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: pgadmin
+    hostname: pgadmin
+    restart: always
+    ports:
+      - 18080:80
+    volumes:
+      - volume_pgadmin:/var/lib/pgadmin
+      - ./inits/init-pgadmin/servers.json:/pgadmin4/servers.json # pre-configured servers/connections
+      - ./inits/init-pgadmin/pgpass:/pgpass # passwords for the connections in this file
+    environment:
+      PGADMIN_DEFAULT_EMAIL: demo@sample.com
+      PGADMIN_DEFAULT_PASSWORD: password
+    depends_on:
+      - postgres
+volumes:
+  volume_postgres:
+    name: v_postgres
+  volume_pgadmin:
+    name: v_pgadmin
