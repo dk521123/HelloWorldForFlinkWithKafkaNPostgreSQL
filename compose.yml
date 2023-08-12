@@ -1,11 +1,13 @@
 version: "3"
 
 services:
-  # Kafka
+  # [1-1] Kafka - zookeeper
   zookeeper:
     image: docker.io/confluentinc/cp-zookeeper:latest
     hostname: zookeeper
     container_name: zookeeper
+    ports:
+      - "2181:2181"
     environment:
       TZ: Asia/Tokyo
       ZOOKEEPER_SERVER_ID: 1
@@ -13,25 +15,29 @@ services:
       ZOOKEEPER_TICK_TIME: 2000
       ZOOKEEPER_INIT_LIMIT: 5
       ZOOKEEPER_SYNC_LIMIT: 2
+  # [1-2] Kafka
   broker:
     image: docker.io/confluentinc/cp-kafka:latest
     hostname: broker
     container_name: broker
+    ports:
+      - "9092:9092"
+      - "19092:19092"
     depends_on:
       - zookeeper
-    ports:
-      - 19092:19092
     environment:
       TZ: Asia/Tokyo
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_INTERNAL:PLAINTEXT
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092,PLAINTEXT_INTERNAL://broker:19092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://broker:19092,PLAINTEXT_HOST://localhost:9092
+      CONFLUENT_SUPPORT_METRICS_ENABLE: "false"
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_JMX_PORT: 9997
       KAFKA_JMX_HOSTNAME: broker
+  # [1-3] Kafka - CLI
   cli:
     image: docker.io/confluentinc/cp-kafka:latest
     hostname: cli
@@ -40,7 +46,7 @@ services:
       - broker
     entrypoint: /bin/bash
     tty: true
-  # Kafka connect
+  # [1-4] Kafka connect
   kafka-connect:
     image: confluentinc/cp-kafka-connect-base:latest
     hostname: connect
@@ -72,6 +78,7 @@ services:
     volumes:
       - ./inits/init-kafka-connect/jars:/etc/kafka-connect/jars
       - ./inits/init-kafka-connect/config:/etc/kafka-connect/config
+  # [1-5] Kafka to initialize
   init-kafka:
     image: confluentinc/cp-kafka:latest
     container_name: init-kafka
@@ -89,6 +96,7 @@ services:
       echo -e 'Successfully created the following topics:'
       kafka-topics --bootstrap-server broker:19092 --list
       "
+  # [1-6] Kafka Web UI
   kafka-ui:
     container_name: kafka-ui
     image: provectuslabs/kafka-ui:latest
@@ -102,7 +110,7 @@ services:
       KAFKA_CLUSTERS_0_NAME: broker-1
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: broker:19092
       KAFKA_CLUSTERS_0_METRICS_PORT: 9997
-  # PostgreSQL
+  # [2-1] PostgreSQL
   postgres:
     image: postgres:latest
     container_name: postgres
@@ -119,6 +127,7 @@ services:
     volumes:
       - volume_postgres:/var/lib/postgresql/data
       - ./inits/init-db:/docker-entrypoint-initdb.d
+  # [2-2] PostgreSQL Web UI (PgAdmin)
   pgadmin:
     image: dpage/pgadmin4
     container_name: pgadmin
