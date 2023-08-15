@@ -52,18 +52,17 @@ sudo docker compose down
 ### Step1: Call Rest API to register access info into Kafka connect
 ```
 curl -X POST \
-  -H "Content-Type: application/json" \
-  --data '{ "name": "demo-jdbc-sink", "config": { "connector.class": "io.confluent.connect.jdbc.JdbcSinkConnector", "tasks.max": 1, "connection.url": "jdbc:postgresql://localhost:5431/demo_db", "connection.user": "postgres", "connection.password": "password", "insert.mode": "insert", "auto.create": "true", "topics": "demo_counter" } }' \
-  http://localhost:8083/connectors
+ -H "Content-Type: application/json" \
+ --data '{ "name": "demo-jdbc-sink", "config": { "connector.class": "PostgresSink", "tasks.max": 1, "connection.host": "localhost", "connection.port": "5431", "db.name": "demo_db", "connection.user": "postgres", "connection.password": "password", "insert.mode": "insert", "auto.create": "true", "topics": "demo_counter" } }' \
+ http://localhost:8083/connectors
 ```
-### Step1: Call Rest API to check Kafka connect status
+### Step2: Call Rest API to check Kafka connect status
 ```
 # curl -s http://localhost:8083/connectors/(KAFKA_CONNECT_NAME)/status/
 curl -s http://localhost:8083/connectors/demo-jdbc-sink/status/
 
 {"name":"demo-jdbc-sink","connector":{"state":"RUNNING","worker_id":"localhost:8083"},"tasks":[{"id":0,"state":"RUNNING","worker_id":"localhost:8083"}],"type":"sink"}
 ```
-
 
 # <span id="appendix-A">Appendix-A: Set-up docker/docker compose</span>
 ## To confirm your enviroment
